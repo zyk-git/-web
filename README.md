@@ -1,6 +1,7 @@
 # 农村婚礼/乔迁电子礼簿（前后端分离，移动端优先）
 
 ## 项目简介
+这是一个**极简、个人可用**的微信 H5 电子礼簿系统（**标准 Web 网页，不是微信小程序**），解决农村婚礼/乔迁现场礼金登记问题。
 这是一个**极简、个人可用**的微信 H5 电子礼簿系统，解决农村婚礼/乔迁现场礼金登记问题。
 
 - 前端：Vue3 + Vite + JavaScript + Vant3 + qrcode.js
@@ -99,6 +100,7 @@ npm run build
 ## 前端 Nginx 部署（把 dist 整体复制）
 1. 打包后得到 `frontend/dist`
 2. 复制到 Nginx 静态目录，例如 `/usr/share/nginx/html/giftbook/`
+3. Nginx `location /` 指向该目录（本项目默认 Hash 路由，通常无需额外回退配置）
 3. Nginx `location /` 指向该目录并开启 history 路由回退
 
 参考配置：
@@ -136,3 +138,9 @@ java -jar target/giftbook-backend-1.0.0.jar
 - 防刷：同一 IP 1 分钟最多提交 3 次
 - 上传图片保存到：`backend/src/main/resources/static/uploads`
 - 管理端请求自动携带 token（localStorage）
+
+
+## 微信浏览器兼容说明
+- 本项目是普通 H5 网页，部署后直接通过链接打开即可。
+- 前端使用 Hash 路由（`/#/`、`/#/admin`），避免在微信内置浏览器和静态托管环境中出现刷新 404。
+- 后台二维码默认指向宾客页 H5 地址（`.../#/`），扫码即可打开网页。
