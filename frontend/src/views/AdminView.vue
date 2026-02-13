@@ -1,17 +1,20 @@
 <template>
   <div class="page">
     <van-nav-bar title="后台管理（H5 网页）" fixed placeholder />
+    <van-nav-bar title="后台管理" />
 
     <div v-if="!token" class="card">
       <van-field v-model="loginForm.username" label="用户名" placeholder="admin" />
       <van-field v-model="loginForm.password" label="密码" type="password" placeholder="admin" />
       <van-button block type="primary" :loading="loadingLogin" @click="login">登录</van-button>
+      <van-button block type="primary" @click="login">登录</van-button>
     </div>
 
     <div v-else>
       <div class="card">
         <van-field v-model="activity.title" label="活动标题" />
         <van-field v-model="activity.date" label="活动日期" placeholder="例如 2026-01-01" />
+        <van-field v-model="activity.date" label="活动日期" />
         <van-field v-model="activity.location" label="活动地点" />
 
         <div class="upload-title">微信收款码</div>
@@ -29,6 +32,12 @@
         <div class="upload-title">宾客页面二维码（扫码打开 H5 网页）</div>
         <div id="qrcode"></div>
         <div class="tip">二维码地址：{{ guestUrl }}</div>
+        <van-button block type="success" @click="saveActivity">保存活动信息</van-button>
+      </div>
+
+      <div class="card">
+        <div class="upload-title">宾客页面二维码</div>
+        <div id="qrcode"></div>
       </div>
 
       <div class="card">
@@ -46,6 +55,7 @@
               :title="`${r.name} ¥${r.amount}`"
               :label="`${r.submitTime || ''} | ${r.payerName}(${r.payerPhone || '-'}) | ${r.relation || ''} | ${r.blessing || ''}`"
             />
+            <van-cell :title="`${r.name} ¥${r.amount}`" :label="`${r.submitTime || ''} | ${r.payerName}(${r.payerPhone || '-'}) | ${r.relation || ''} | ${r.blessing || ''}`" />
             <template #right>
               <van-button square type="danger" text="删除" @click="deleteOne(r.id)" />
             </template>
@@ -73,6 +83,7 @@ const guestUrl = ref('')
 
 const loadingLogin = ref(false)
 const loadingSave = ref(false)
+const sum = ref(0)
 let wxFile = null
 let aliFile = null
 
@@ -87,6 +98,7 @@ const buildQr = async () => {
   el.innerHTML = ''
   new QRCode(el, {
     text: guestUrl.value,
+    text: `${window.location.origin}/`,
     width: 220,
     height: 220
   })
@@ -153,6 +165,37 @@ const clearAll = async () => {
     showSuccessToast('已清空')
     await loadRecords()
   } catch {}
+  activity.value = data
+}
+
+const saveActivity = async () => {
+  const formData = new FormData()
+  formData.append('title', activity.value.title)
+  formData.append('date', activity.value.date)
+  formData.append('location', activity.value.location)
+  if (wxFile) formData.append('wxFile', wxFile)
+  if (aliFile) formData.append('aliFile', aliFile)
+  await axios.post(`${apiBase}/api/activity/update`, formData, { headers: { ...authHeader() } })
+  showSuccessToast('保存成功')
+  wxFile = null
+  aliFile = null
+  await loadActivity()
+}
+
+const loadRecords = async () => {
+  const { data } = await axios.get(`${apiBase}/api/records`, {
+    headers: authHeader(),
+    params: { keyword: keyword.value }
+  })
+  records.value = data.records
+  sum.value = data.sum
+}
+
+const clearAll = async () => {
+  await showConfirmDialog({ title: '确认', message: '确定清空所有记录？' })
+  await axios.delete(`${apiBase}/api/records/clear`, { headers: authHeader() })
+  showSuccessToast('已清空')
+  await loadRecords()
 }
 
 const deleteOne = async (id) => {
@@ -172,6 +215,10 @@ const exportExcel = async () => {
   link.download = 'gift_records.xlsx'
   link.click()
   URL.revokeObjectURL(link.href)
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(res.data)
+  link.download = 'gift_records.xlsx'
+  link.click()
 }
 
 const initAdmin = async () => {

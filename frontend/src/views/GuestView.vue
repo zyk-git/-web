@@ -7,6 +7,13 @@
       <template #desc>
         <div>日期：{{ activity.date || '-' }}</div>
         <div>地点：{{ activity.location || '-' }}</div>
+    <van-nav-bar title="电子礼簿" />
+
+    <van-card>
+      <template #title>{{ activity.title }}</template>
+      <template #desc>
+        <div>日期：{{ activity.date }}</div>
+        <div>地点：{{ activity.location }}</div>
       </template>
     </van-card>
 
@@ -20,6 +27,11 @@
         <div class="qr-title">支付宝收款码</div>
         <van-image v-if="activity.aliQrcodePath" width="100%" height="140" fit="contain" :src="fullImg(activity.aliQrcodePath)" />
         <van-empty v-else image="search" description="暂未上传" />
+        <van-image width="100%" height="140" fit="contain" :src="fullImg(activity.wxQrcodePath)" />
+      </van-col>
+      <van-col span="12">
+        <div class="qr-title">支付宝收款码</div>
+        <van-image width="100%" height="140" fit="contain" :src="fullImg(activity.aliQrcodePath)" />
       </van-col>
     </van-row>
 
@@ -47,6 +59,21 @@
     </van-form>
 
     <van-action-sheet v-model:show="showRelationPicker" :actions="relationActions" cancel-text="取消" close-on-click-action @select="onSelectRelation" />
+      <van-button block type="primary" plain @click="addItem" :disabled="items.length >= 10">+ 添加一人</van-button>
+
+      <van-field v-model="payerName" label="代付人姓名" placeholder="必填" required />
+      <van-field v-model="payerPhone" label="代付人手机号" placeholder="可选" />
+
+      <van-cell title="总金额" :value="total + ' 元'" class="total" />
+
+      <div style="margin: 16px">
+        <van-button round block type="success" native-type="submit">提交记录</van-button>
+      </div>
+    </van-form>
+
+    <van-popup v-model:show="showPicker" position="bottom">
+      <van-picker :columns="relations" @confirm="confirmRelation" @cancel="showPicker = false" />
+    </van-popup>
   </div>
 </template>
 
@@ -82,6 +109,18 @@ const loadActivity = async () => {
   } catch {
     showFailToast('活动信息加载失败')
   }
+const items = ref([{ name: '', amount: '', relation: '亲戚', blessing: '' }])
+const relations = ['亲戚', '同学', '同事', '朋友', '其他']
+const showPicker = ref(false)
+const currentIndex = ref(0)
+
+const total = computed(() => items.value.reduce((sum, x) => sum + (Number(x.amount) || 0), 0).toFixed(2))
+
+const fullImg = (path) => (path ? `${apiBase}${path}` : '')
+
+const loadActivity = async () => {
+  const { data } = await axios.get(`${apiBase}/api/activity`)
+  activity.value = data
 }
 
 const openRelation = (index) => {
@@ -127,6 +166,32 @@ const submitForm = async () => {
   } finally {
     submitting.value = false
   }
+  showPicker.value = true
+}
+
+const confirmRelation = ({ selectedValues }) => {
+  items.value[currentIndex.value].relation = selectedValues[0]
+  showPicker.value = false
+}
+
+const addItem = () => {
+  if (items.value.length < 10) items.value.push({ name: '', amount: '', relation: '亲戚', blessing: '' })
+}
+
+const submitForm = async () => {
+  if (!payerName.value) return showFailToast('请填写代付人姓名')
+  if (items.value.some((x) => !x.name || !x.amount)) return showFailToast('请填写完整姓名和金额')
+
+  const payload = {
+    payerName: payerName.value,
+    payerPhone: payerPhone.value,
+    items: items.value.map((x) => ({ ...x, amount: Number(x.amount) }))
+  }
+  const { data } = await axios.post(`${apiBase}/api/records`, payload)
+  showSuccessToast(`记录成功！请扫码转账总金额 ${data.total} 元给主人`)
+  payerName.value = ''
+  payerPhone.value = ''
+  items.value = [{ name: '', amount: '', relation: '亲戚', blessing: '' }]
 }
 
 onMounted(loadActivity)
@@ -140,4 +205,5 @@ onMounted(loadActivity)
 .line-head { padding: 10px 12px; color: #666; font-size: 12px; background: #fafafa; }
 .total { font-size: 18px; color: #07c160; font-weight: 700; }
 .actions { margin: 12px; }
+.total { font-size: 18px; color: #07c160; font-weight: 700; }
 </style>
